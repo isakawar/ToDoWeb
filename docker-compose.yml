@@ -5,9 +5,15 @@ services:
     container_name: task-backend
     ports:
       - "4000:4000"
-    volumes:
-      - ./tasks.json:/app/tasks.json
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_USER=todoqa
+      - DB_PASSWORD=todoqa_pass
+      - DB_NAME=todoqa_db
     restart: always
+
   frontend:
     build: ./client
     container_name: task-frontend
@@ -15,4 +21,21 @@ services:
       - "3000:80"
     depends_on:
       - backend
-    restart: always 
+    restart: always
+
+  db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass
+      MYSQL_DATABASE: todoqa_db
+      MYSQL_USER: todoqa
+      MYSQL_PASSWORD: todoqa_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data: 

@@ -7,6 +7,8 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const PORT = 4000;
 
+const { sequelize, User, Task, Finance, DailyExpense, Note, Habit } = require('./db');
+
 app.use(cors());
 app.use(bodyParser.json());
 
@@ -46,10 +48,9 @@ function writeFinance(finance) {
 }
 
 // --- AUTH ---
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
-  const users = readUsers();
-  const user = users.find(u => u.username === username && u.password === password);
+  const user = await User.findOne({ where: { username, password } });
   if (!user) return res.status(401).json({ error: 'Невірний логін або пароль' });
   const sessionId = uuidv4();
   SESSIONS[sessionId] = user.id;
@@ -65,191 +66,347 @@ function requireSession(req, res, next) {
 }
 
 // --- TASKS API ---
-app.get('/api/tasks', requireSession, (req, res) => {
-  const tasks = readTasks();
-  res.json(tasks.filter(t => t.userId === req.userId));
+// Отримати всі задачі користувача
+app.get('/api/tasks', requireSession, async (req, res) => {
+  try {
+    const tasks = await Task.findAll({ where: { userId: req.userId } });
+    res.json(tasks);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 
-app.post('/api/tasks', requireSession, (req, res) => {
-  const tasks = readTasks();
-  const newTask = { ...req.body, id: Date.now(), userId: req.userId };
-  tasks.push(newTask);
-  writeTasks(tasks);
-  res.json(newTask);
+// Додати нову задачу
+app.post('/api/tasks', requireSession, async (req, res) => {
+  try {
+    const taskData = {
+      ...req.body,
+      id: Date.now(),
+      userId: req.userId,
+      spentTime: req.body.spentTime || 0,
+      isTracking: req.body.isTracking || false,
+    };
+    console.log('Creating task:', taskData);
+    const task = await Task.create(taskData);
+    res.json(task);
+  } catch (e) {
+    console.error('Task create error:', e);
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 
-app.put('/api/tasks/:id', requireSession, (req, res) => {
-  const tasks = readTasks();
-  const idx = tasks.findIndex(t => t.id == req.params.id && t.userId === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'Задачу не знайдено' });
-  tasks[idx] = { ...tasks[idx], ...req.body };
-  writeTasks(tasks);
-  res.json(tasks[idx]);
+// Оновити задачу
+app.put('/api/tasks/:id', requireSession, async (req, res) => {
+  try {
+    const task = await Task.findOne({ where: { id: req.params.id, userId: req.userId } });
+    if (!task) return res.status(404).json({ error: 'Задачу не знайдено' });
+    Object.assign(task, req.body);
+    await task.save();
+    res.json(task);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 
-app.delete('/api/tasks/:id', requireSession, (req, res) => {
-  let tasks = readTasks();
-  const idx = tasks.findIndex(t => t.id == req.params.id && t.userId === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'Задачу не знайдено' });
-  const deleted = tasks[idx];
-  tasks.splice(idx, 1);
-  writeTasks(tasks);
-  res.json(deleted);
+// Видалити задачу
+app.delete('/api/tasks/:id', requireSession, async (req, res) => {
+  try {
+    const task = await Task.findOne({ where: { id: req.params.id, userId: req.userId } });
+    if (!task) return res.status(404).json({ error: 'Задачу не знайдено' });
+    await task.destroy();
+    res.json(task);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 
 // --- HABITS API ---
 // Отримати всі звички користувача
-app.get('/api/habits', requireSession, (req, res) => {
-  const habits = readHabits();
-  res.json(habits.filter(h => h.userId === req.userId));
+app.get('/api/habits', requireSession, async (req, res) => {
+  try {
+    const habits = await Habit.findAll({ where: { userId: req.userId } });
+    res.json(habits);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 // Додати нову звичку
-app.post('/api/habits', requireSession, (req, res) => {
-  const habits = readHabits();
-  const newHabit = {
-    id: Date.now(),
-    userId: req.userId,
-    name: req.body.name,
-    days: Array.isArray(req.body.days) && req.body.days.length === 7 ? req.body.days : [false, false, false, false, false, false, false],
-    activeDays: Array.isArray(req.body.activeDays) && req.body.activeDays.length === 7 ? req.body.activeDays : [true, true, true, true, true, true, true],
-  };
-  habits.push(newHabit);
-  writeHabits(habits);
-  res.json(newHabit);
+app.post('/api/habits', requireSession, async (req, res) => {
+  try {
+    const habitData = {
+      id: Date.now(),
+      userId: req.userId,
+      name: req.body.name,
+      days: Array.isArray(req.body.days) && req.body.days.length === 7 ? req.body.days : [false, false, false, false, false, false, false],
+      activeDays: Array.isArray(req.body.activeDays) && req.body.activeDays.length === 7 ? req.body.activeDays : [true, true, true, true, true, true, true],
+    };
+    console.log('Creating habit:', habitData);
+    const habit = await Habit.create(habitData);
+    res.json(habit);
+  } catch (e) {
+    console.error('Habit create error:', e);
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
-// Оновити звичку (наприклад, відмітки по днях або дні очікування)
-app.put('/api/habits/:id', requireSession, (req, res) => {
-  const habits = readHabits();
-  const idx = habits.findIndex(h => h.id == req.params.id && h.userId === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'Звичку не знайдено' });
-  habits[idx] = { ...habits[idx], ...req.body };
-  writeHabits(habits);
-  res.json(habits[idx]);
+// Оновити звичку
+app.put('/api/habits/:id', requireSession, async (req, res) => {
+  try {
+    const habit = await Habit.findOne({ where: { id: req.params.id, userId: req.userId } });
+    if (!habit) return res.status(404).json({ error: 'Звичку не знайдено' });
+    if (req.body.name !== undefined) habit.name = req.body.name;
+    if (req.body.days !== undefined) habit.days = req.body.days;
+    if (req.body.activeDays !== undefined) habit.activeDays = req.body.activeDays;
+    await habit.save();
+    res.json(habit);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 // Видалити звичку
-app.delete('/api/habits/:id', requireSession, (req, res) => {
-  let habits = readHabits();
-  const idx = habits.findIndex(h => h.id == req.params.id && h.userId === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'Звичку не знайдено' });
-  const deleted = habits[idx];
-  habits.splice(idx, 1);
-  writeHabits(habits);
-  res.json(deleted);
+app.delete('/api/habits/:id', requireSession, async (req, res) => {
+  try {
+    const habit = await Habit.findOne({ where: { id: req.params.id, userId: req.userId } });
+    if (!habit) return res.status(404).json({ error: 'Звичку не знайдено' });
+    await habit.destroy();
+    res.json(habit);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 
 // --- NOTES API ---
 // Отримати всі нотатки користувача
-app.get('/api/notes', requireSession, (req, res) => {
-  const notes = readNotes();
-  res.json(notes.filter(n => n.userId === req.userId));
+app.get('/api/notes', requireSession, async (req, res) => {
+  try {
+    const notes = await Note.findAll({ where: { userId: req.userId } });
+    res.json(notes);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 // Додати нову нотатку
-app.post('/api/notes', requireSession, (req, res) => {
-  const notes = readNotes();
-  const newNote = {
-    id: Date.now(),
-    userId: req.userId,
-    title: req.body.title || '',
-    content: req.body.content || '',
-    links: Array.isArray(req.body.links) ? req.body.links : [],
-  };
-  notes.push(newNote);
-  writeNotes(notes);
-  res.json(newNote);
+app.post('/api/notes', requireSession, async (req, res) => {
+  try {
+    const noteData = {
+      id: Date.now(),
+      userId: req.userId,
+      title: req.body.title || '',
+      content: req.body.content || '',
+      links: Array.isArray(req.body.links) ? req.body.links : [],
+    };
+    console.log('Creating note:', noteData);
+    const note = await Note.create(noteData);
+    res.json(note);
+  } catch (e) {
+    console.error('Note create error:', e);
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 // Оновити нотатку
-app.put('/api/notes/:id', requireSession, (req, res) => {
-  const notes = readNotes();
-  const idx = notes.findIndex(n => n.id == req.params.id && n.userId === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'Нотатку не знайдено' });
-  notes[idx] = { ...notes[idx], ...req.body };
-  writeNotes(notes);
-  res.json(notes[idx]);
+app.put('/api/notes/:id', requireSession, async (req, res) => {
+  try {
+    const note = await Note.findOne({ where: { id: req.params.id, userId: req.userId } });
+    if (!note) return res.status(404).json({ error: 'Нотатку не знайдено' });
+    if (req.body.title !== undefined) note.title = req.body.title;
+    if (req.body.content !== undefined) note.content = req.body.content;
+    if (req.body.links !== undefined) note.links = req.body.links;
+    await note.save();
+    res.json(note);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 // Видалити нотатку
-app.delete('/api/notes/:id', requireSession, (req, res) => {
-  let notes = readNotes();
-  const idx = notes.findIndex(n => n.id == req.params.id && n.userId === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'Нотатку не знайдено' });
-  const deleted = notes[idx];
-  notes.splice(idx, 1);
-  writeNotes(notes);
-  res.json(deleted);
+app.delete('/api/notes/:id', requireSession, async (req, res) => {
+  try {
+    const note = await Note.findOne({ where: { id: req.params.id, userId: req.userId } });
+    if (!note) return res.status(404).json({ error: 'Нотатку не знайдено' });
+    await note.destroy();
+    res.json(note);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
 });
 
 // --- FINANCE API ---
+
 // Отримати фінансові дані користувача
-app.get('/api/finance', requireSession, (req, res) => {
-  const all = readFinance();
-  const data = all.find(f => f.userId === req.userId);
-  res.json(data || {
-    userId: req.userId,
-    income: { main: 0, extra: 0 },
-    plannedExpenses: {},
-    dailyExpenses: []
-  });
-});
-// Оновити план доходів/витрат
-app.put('/api/finance/plan', requireSession, (req, res) => {
-  let all = readFinance();
-  let idx = all.findIndex(f => f.userId === req.userId);
-  if (idx === -1) {
-    all.push({
-      userId: req.userId,
-      income: req.body.income || { main: 0, extra: 0 },
-      plannedExpenses: req.body.plannedExpenses || {},
-      dailyExpenses: []
+app.get('/api/finance', requireSession, async (req, res) => {
+  try {
+    let finance = await Finance.findOne({
+      where: { userId: req.userId },
+      include: [{ model: DailyExpense }],
     });
-    writeFinance(all);
-    return res.json(all[all.length - 1]);
-  }
-  all[idx].income = req.body.income || all[idx].income;
-  all[idx].plannedExpenses = req.body.plannedExpenses || all[idx].plannedExpenses;
-  writeFinance(all);
-  res.json(all[idx]);
-});
-// Додати щоденну витрату
-app.post('/api/finance/expense', requireSession, (req, res) => {
-  let all = readFinance();
-  let idx = all.findIndex(f => f.userId === req.userId);
-  if (idx === -1) {
-    all.push({
+    if (!finance) {
+      // Якщо немає, повертаємо порожню структуру
+      return res.json({
+        userId: req.userId,
+        income: { main: 0, extra: 0 },
+        plannedExpenses: {},
+        dailyExpenses: [],
+      });
+    }
+    res.json({
       userId: req.userId,
-      income: { main: 0, extra: 0 },
-      plannedExpenses: {},
-      dailyExpenses: []
+      income: { main: finance.income_main, extra: finance.income_extra },
+      plannedExpenses: finance.plannedExpenses || {},
+      dailyExpenses: finance.DailyExpenses || [],
     });
-    idx = all.length - 1;
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
   }
-  const expense = { ...req.body, id: Date.now() };
-  all[idx].dailyExpenses.push(expense);
-  writeFinance(all);
-  res.json(expense);
-});
-// Оновити витрату
-app.put('/api/finance/expense/:id', requireSession, (req, res) => {
-  let all = readFinance();
-  let idx = all.findIndex(f => f.userId === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'Дані не знайдено' });
-  let expIdx = all[idx].dailyExpenses.findIndex(e => e.id == req.params.id);
-  if (expIdx === -1) return res.status(404).json({ error: 'Витрату не знайдено' });
-  all[idx].dailyExpenses[expIdx] = { ...all[idx].dailyExpenses[expIdx], ...req.body };
-  writeFinance(all);
-  res.json(all[idx].dailyExpenses[expIdx]);
-});
-// Видалити витрату
-app.delete('/api/finance/expense/:id', requireSession, (req, res) => {
-  let all = readFinance();
-  let idx = all.findIndex(f => f.userId === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'Дані не знайдено' });
-  let expIdx = all[idx].dailyExpenses.findIndex(e => e.id == req.params.id);
-  if (expIdx === -1) return res.status(404).json({ error: 'Витрату не знайдено' });
-  const deleted = all[idx].dailyExpenses[expIdx];
-  all[idx].dailyExpenses.splice(expIdx, 1);
-  writeFinance(all);
-  res.json(deleted);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server started on http://localhost:${PORT}`);
+// Оновити план доходів/витрат
+app.put('/api/finance/plan', requireSession, async (req, res) => {
+  try {
+    let finance = await Finance.findOne({ where: { userId: req.userId } });
+    if (!finance) {
+      finance = await Finance.create({
+        userId: req.userId,
+        income_main: req.body.income?.main || 0,
+        income_extra: req.body.income?.extra || 0,
+        plannedExpenses: req.body.plannedExpenses || {},
+      });
+    } else {
+      finance.income_main = req.body.income?.main ?? finance.income_main;
+      finance.income_extra = req.body.income?.extra ?? finance.income_extra;
+      finance.plannedExpenses = req.body.plannedExpenses ?? finance.plannedExpenses;
+      await finance.save();
+    }
+    // Повертаємо актуальні дані з dailyExpenses
+    const updated = await Finance.findOne({
+      where: { userId: req.userId },
+      include: [{ model: DailyExpense }],
+    });
+    res.json({
+      userId: req.userId,
+      income: { main: updated.income_main, extra: updated.income_extra },
+      plannedExpenses: updated.plannedExpenses || {},
+      dailyExpenses: updated.DailyExpenses || [],
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
+});
+
+// Додати щоденну витрату
+app.post('/api/finance/expense', requireSession, async (req, res) => {
+  try {
+    let finance = await Finance.findOne({ where: { userId: req.userId } });
+    if (!finance) {
+      // Якщо фінансового плану ще немає — створюємо
+      finance = await Finance.create({ userId: req.userId });
+    }
+    const expense = await DailyExpense.create({
+      financeId: finance.id,
+      date: req.body.date,
+      name: req.body.name,
+      category: req.body.category,
+      amount: req.body.amount,
+    });
+    res.json(expense);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
+});
+
+// Оновити витрату
+app.put('/api/finance/expense/:id', requireSession, async (req, res) => {
+  try {
+    let finance = await Finance.findOne({ where: { userId: req.userId } });
+    if (!finance) return res.status(404).json({ error: 'Фінансовий план не знайдено' });
+    let expense = await DailyExpense.findOne({ where: { id: req.params.id, financeId: finance.id } });
+    if (!expense) return res.status(404).json({ error: 'Витрату не знайдено' });
+    expense.date = req.body.date ?? expense.date;
+    expense.name = req.body.name ?? expense.name;
+    expense.category = req.body.category ?? expense.category;
+    expense.amount = req.body.amount ?? expense.amount;
+    await expense.save();
+    res.json(expense);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
+});
+
+// Видалити витрату
+app.delete('/api/finance/expense/:id', requireSession, async (req, res) => {
+  try {
+    let finance = await Finance.findOne({ where: { userId: req.userId } });
+    if (!finance) return res.status(404).json({ error: 'Фінансовий план не знайдено' });
+    let expense = await DailyExpense.findOne({ where: { id: req.params.id, financeId: finance.id } });
+    if (!expense) return res.status(404).json({ error: 'Витрату не знайдено' });
+    await expense.destroy();
+    res.json(expense);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', details: e.message });
+  }
+});
+
+// --- МІГРАЦІЯ ДАНИХ З JSON У MYSQL ---
+app.post('/api/migrate', async (req, res) => {
+  try {
+    // Users
+    const users = readUsers();
+    for (const u of users) {
+      let [user, created] = await User.findOrCreate({
+        where: { username: u.username },
+        defaults: { password: u.password },
+      });
+      // Tasks
+      const tasks = readTasks().filter(t => t.userId === u.id);
+      for (const t of tasks) {
+        await Task.findOrCreate({
+          where: { id: t.id },
+          defaults: {
+            title: t.title,
+            company: t.company,
+            priority: t.priority,
+            description: t.description,
+            done: t.done,
+            spentTime: t.spentTime,
+            isTracking: t.isTracking,
+            userId: user.id,
+          },
+        });
+      }
+      // Notes
+      const notes = readNotes().filter(n => n.userId === u.id);
+      for (const n of notes) {
+        await Note.findOrCreate({
+          where: { id: n.id },
+          defaults: {
+            title: n.title,
+            content: n.content,
+            links: n.links,
+            userId: user.id,
+          },
+        });
+      }
+      // Habits
+      const habits = readHabits().filter(h => h.userId === u.id);
+      for (const h of habits) {
+        await Habit.findOrCreate({
+          where: { id: h.id },
+          defaults: {
+            name: h.name,
+            days: h.days,
+            activeDays: h.activeDays,
+            userId: user.id,
+          },
+        });
+      }
+    }
+    res.json({ status: 'ok' });
+  } catch (e) {
+    console.error('Migration error:', e);
+    res.status(500).json({ error: 'Migration error', details: e.message });
+  }
+});
+
+// Синхронізація моделей і старт сервера
+sequelize.sync().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server started on port ${PORT}`);
+  });
 }); 
