@@ -15,6 +15,7 @@ const USERS_FILE = './data/users.json';
 const SESSIONS = {};
 const HABITS_FILE = './data/habits.json';
 const NOTES_FILE = './data/notes.json';
+const FINANCE_FILE = './data/finance.json';
 
 function readTasks() {
   return JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
@@ -36,6 +37,12 @@ function readNotes() {
 }
 function writeNotes(notes) {
   fs.writeFileSync(NOTES_FILE, JSON.stringify(notes, null, 2));
+}
+function readFinance() {
+  return JSON.parse(fs.readFileSync(FINANCE_FILE, 'utf8'));
+}
+function writeFinance(finance) {
+  fs.writeFileSync(FINANCE_FILE, JSON.stringify(finance, null, 2));
 }
 
 // --- AUTH ---
@@ -167,6 +174,79 @@ app.delete('/api/notes/:id', requireSession, (req, res) => {
   const deleted = notes[idx];
   notes.splice(idx, 1);
   writeNotes(notes);
+  res.json(deleted);
+});
+
+// --- FINANCE API ---
+// Отримати фінансові дані користувача
+app.get('/api/finance', requireSession, (req, res) => {
+  const all = readFinance();
+  const data = all.find(f => f.userId === req.userId);
+  res.json(data || {
+    userId: req.userId,
+    income: { main: 0, extra: 0 },
+    plannedExpenses: {},
+    dailyExpenses: []
+  });
+});
+// Оновити план доходів/витрат
+app.put('/api/finance/plan', requireSession, (req, res) => {
+  let all = readFinance();
+  let idx = all.findIndex(f => f.userId === req.userId);
+  if (idx === -1) {
+    all.push({
+      userId: req.userId,
+      income: req.body.income || { main: 0, extra: 0 },
+      plannedExpenses: req.body.plannedExpenses || {},
+      dailyExpenses: []
+    });
+    writeFinance(all);
+    return res.json(all[all.length - 1]);
+  }
+  all[idx].income = req.body.income || all[idx].income;
+  all[idx].plannedExpenses = req.body.plannedExpenses || all[idx].plannedExpenses;
+  writeFinance(all);
+  res.json(all[idx]);
+});
+// Додати щоденну витрату
+app.post('/api/finance/expense', requireSession, (req, res) => {
+  let all = readFinance();
+  let idx = all.findIndex(f => f.userId === req.userId);
+  if (idx === -1) {
+    all.push({
+      userId: req.userId,
+      income: { main: 0, extra: 0 },
+      plannedExpenses: {},
+      dailyExpenses: []
+    });
+    idx = all.length - 1;
+  }
+  const expense = { ...req.body, id: Date.now() };
+  all[idx].dailyExpenses.push(expense);
+  writeFinance(all);
+  res.json(expense);
+});
+// Оновити витрату
+app.put('/api/finance/expense/:id', requireSession, (req, res) => {
+  let all = readFinance();
+  let idx = all.findIndex(f => f.userId === req.userId);
+  if (idx === -1) return res.status(404).json({ error: 'Дані не знайдено' });
+  let expIdx = all[idx].dailyExpenses.findIndex(e => e.id == req.params.id);
+  if (expIdx === -1) return res.status(404).json({ error: 'Витрату не знайдено' });
+  all[idx].dailyExpenses[expIdx] = { ...all[idx].dailyExpenses[expIdx], ...req.body };
+  writeFinance(all);
+  res.json(all[idx].dailyExpenses[expIdx]);
+});
+// Видалити витрату
+app.delete('/api/finance/expense/:id', requireSession, (req, res) => {
+  let all = readFinance();
+  let idx = all.findIndex(f => f.userId === req.userId);
+  if (idx === -1) return res.status(404).json({ error: 'Дані не знайдено' });
+  let expIdx = all[idx].dailyExpenses.findIndex(e => e.id == req.params.id);
+  if (expIdx === -1) return res.status(404).json({ error: 'Витрату не знайдено' });
+  const deleted = all[idx].dailyExpenses[expIdx];
+  all[idx].dailyExpenses.splice(expIdx, 1);
+  writeFinance(all);
   res.json(deleted);
 });
 

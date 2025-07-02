@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { getTasks, addTask, updateTask, deleteTask, login, getHabits, addHabit, updateHabit, deleteHabit, getNotes, addNote, updateNote, deleteNote } from './api';
+import { getTasks, addTask, updateTask, deleteTask, login, getHabits, addHabit, updateHabit, deleteHabit, getNotes, addNote, updateNote, deleteNote, getFinance, updateFinancePlan, addExpense, updateExpense, deleteExpense } from './api';
 import './App.css';
 import pomodoroSound from './pomodoro.mp3';
+import { Pie } from 'react-chartjs-2';
+import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
+Chart.register(ArcElement, Tooltip, Legend);
 
 const COMPANIES = [
   { value: 'RG', label: 'RG', color: '#43a047' }, // Зелений
@@ -20,6 +23,25 @@ const DONE_FILTERS = [
 ];
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+
+const EXPENSE_CATEGORIES = [
+  'Податки',
+  'Кредити',
+  'Квартира',
+  'Комунальні послуги',
+  'Харчування',
+  "Сотовий зв'язок, підписки",
+  'Англійська',
+  'Тренажерний зал',
+  'Авто',
+  'Розваги',
+  'Догляд за собою',
+  'Подарунки',
+  'Інвестиції',
+  'Одяг',
+  'Інше',
+  'Розвиток (книги/курси)'
+];
 
 function HabitTracker() {
   const [habits, setHabits] = useState([]);
@@ -273,6 +295,204 @@ function NotesBoard() {
   );
 }
 
+function getToday() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function FinancePlanner() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [planIncome, setPlanIncome] = useState({ main: '', extra: '' });
+  const [planExpenses, setPlanExpenses] = useState({});
+  const [expenseForm, setExpenseForm] = useState({ date: getToday(), name: '', category: EXPENSE_CATEGORIES[0], amount: '' });
+  const [editExpenseId, setEditExpenseId] = useState(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+
+  useEffect(() => {
+    getFinance().then(fin => {
+      setData(fin);
+      setPlanIncome(fin.income || { main: '', extra: '' });
+      setPlanExpenses(fin.plannedExpenses || {});
+      setLoading(false);
+    });
+  }, []);
+
+  const handlePlanChange = e => {
+    setPlanIncome({ ...planIncome, [e.target.name]: e.target.value });
+  };
+  const handlePlanExpenseChange = (cat, value) => {
+    setPlanExpenses(pe => ({ ...pe, [cat]: value }));
+  };
+  const savePlan = async () => {
+    const res = await updateFinancePlan(
+      { main: Number(planIncome.main) || 0, extra: Number(planIncome.extra) || 0 },
+      Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c, Number(planExpenses[c]) || 0]))
+    );
+    setData(res);
+  };
+
+  const handleExpenseForm = e => {
+    setExpenseForm({ ...expenseForm, [e.target.name]: e.target.value });
+  };
+  const handleExpenseSubmit = async e => {
+    e.preventDefault();
+    if (!expenseForm.date || !expenseForm.name || !expenseForm.amount) return;
+    if (editExpenseId) {
+      const updated = await updateExpense(editExpenseId, { ...expenseForm, amount: Number(expenseForm.amount) });
+      setData(d => ({ ...d, dailyExpenses: d.dailyExpenses.map(e => e.id === editExpenseId ? updated : e) }));
+      setEditExpenseId(null);
+    } else {
+      const created = await addExpense({ ...expenseForm, amount: Number(expenseForm.amount) });
+      setData(d => ({ ...d, dailyExpenses: [...d.dailyExpenses, created] }));
+    }
+    setExpenseForm({ date: getToday(), name: '', category: EXPENSE_CATEGORIES[0], amount: '' });
+  };
+  const handleExpenseEdit = exp => {
+    setEditExpenseId(exp.id);
+    setExpenseForm({ date: exp.date, name: exp.name, category: exp.category, amount: exp.amount });
+  };
+  const handleExpenseDelete = async id => {
+    await deleteExpense(id);
+    setData(d => ({ ...d, dailyExpenses: d.dailyExpenses.filter(e => e.id !== id) }));
+  };
+
+  // Підрахунок
+  const totalPlanIncome = Number(planIncome.main) + Number(planIncome.extra);
+  const totalPlanExpenses = EXPENSE_CATEGORIES.reduce((sum, c) => sum + (Number(planExpenses[c]) || 0), 0);
+  const factExpensesByCat = {};
+  (data?.dailyExpenses || []).forEach(e => {
+    factExpensesByCat[e.category] = (factExpensesByCat[e.category] || 0) + Number(e.amount);
+  });
+  const totalFactExpenses = Object.values(factExpensesByCat).reduce((a, b) => a + b, 0);
+  const balance = totalPlanIncome - totalFactExpenses;
+
+  // Pie chart data
+  const pieData = {
+    labels: EXPENSE_CATEGORIES,
+    datasets: [
+      {
+        data: EXPENSE_CATEGORIES.map(c => factExpensesByCat[c] || 0),
+        backgroundColor: [
+          '#ffb300', '#64b5f6', '#81c784', '#e57373', '#ba68c8', '#ffd54f', '#b0bec5'
+        ],
+      },
+    ],
+  };
+
+  return (
+    <div className="finance-planner">
+      <h2>Фінансовий планер</h2>
+      <button className="finance-plan-btn" onClick={() => setShowPlanModal(true)}>Редагувати фінансовий план</button>
+      {showPlanModal && (
+        <div className="modal-backdrop" onClick={() => setShowPlanModal(false)}>
+          <div className="modal finance-plan-modal" onClick={e => e.stopPropagation()}>
+            <h3>План доходів</h3>
+            <div className="plan-income-row">
+              <span>Основний дохід:</span>
+              <input name="main" type="number" value={planIncome.main} onChange={handlePlanChange} placeholder="0" />
+            </div>
+            <div className="plan-income-row">
+              <span>Додатковий дохід:</span>
+              <input name="extra" type="number" value={planIncome.extra} onChange={handlePlanChange} placeholder="0" />
+            </div>
+            <h3>План витрат по категоріях</h3>
+            {EXPENSE_CATEGORIES.map(cat => (
+              <div key={cat} className="plan-expense-row">
+                <span>{cat}:</span>
+                <input type="number" value={planExpenses[cat] || ''} onChange={e => handlePlanExpenseChange(cat, e.target.value)} />
+              </div>
+            ))}
+            <div className="modal-actions">
+              <button className="finance-save-btn" onClick={() => { savePlan(); setShowPlanModal(false); }}>Зберегти</button>
+              <button type="button" onClick={() => setShowPlanModal(false)}>Скасувати</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {loading ? <div>Завантаження...</div> : (
+        <>
+          <div className="finance-summary">
+            <div>Очікуваний дохід: <b>{totalPlanIncome} грн</b></div>
+            <div>Очікувані витрати: <b>{totalPlanExpenses} грн</b></div>
+            <div>Фактичні витрати: <b>{totalFactExpenses} грн</b></div>
+            <div>Поточний баланс: <b style={{color: balance >= 0 ? '#43a047' : '#d32f2f'}}>{balance} грн</b></div>
+          </div>
+          <div className="finance-diff-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Категорія</th>
+                  <th>План</th>
+                  <th>Факт</th>
+                  <th>Різниця</th>
+                </tr>
+              </thead>
+              <tbody>
+                {EXPENSE_CATEGORIES.map(cat => {
+                  const plan = Number(planExpenses[cat]) || 0;
+                  const fact = factExpensesByCat[cat] || 0;
+                  const diff = plan - fact;
+                  return (
+                    <tr key={cat}>
+                      <td>{cat}</td>
+                      <td>{plan}</td>
+                      <td>{fact}</td>
+                      <td style={{color: diff >= 0 ? '#43a047' : '#d32f2f'}}>{diff}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="finance-expenses-block">
+            <h3>Щоденні витрати</h3>
+            <form className="expense-form" onSubmit={handleExpenseSubmit}>
+              <input name="date" type="date" value={expenseForm.date} onChange={handleExpenseForm} required />
+              <input name="name" value={expenseForm.name} onChange={handleExpenseForm} placeholder="Назва" required />
+              <select name="category" value={expenseForm.category} onChange={handleExpenseForm}>
+                {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+              <input name="amount" type="number" value={expenseForm.amount} onChange={handleExpenseForm} placeholder="Сума" required />
+              <button type="submit">{editExpenseId ? 'Зберегти' : 'Додати'}</button>
+              {editExpenseId && <button type="button" onClick={() => { setEditExpenseId(null); setExpenseForm({ date: getToday(), name: '', category: EXPENSE_CATEGORIES[0], amount: '' }); }}>Скасувати</button>}
+            </form>
+            <table className="expenses-table">
+              <thead>
+                <tr>
+                  <th>Дата</th>
+                  <th>Назва</th>
+                  <th>Категорія</th>
+                  <th>Сума</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.dailyExpenses || []).map(exp => (
+                  <tr key={exp.id}>
+                    <td>{exp.date}</td>
+                    <td>{exp.name}</td>
+                    <td>{exp.category}</td>
+                    <td>{exp.amount}</td>
+                    <td>
+                      <button className="expense-edit-btn" onClick={() => handleExpenseEdit(exp)}>✏️</button>
+                      <button className="expense-del-btn" onClick={() => handleExpenseDelete(exp.id)}>🗑️</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="finance-charts">
+            <h3>Діаграма витрат по категоріях</h3>
+            <Pie data={pieData} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -482,6 +702,7 @@ function App() {
             <button className={page === 'tasks' ? 'nav-btn active' : 'nav-btn'} onClick={() => setPage('tasks')}>Планувальник</button>
             <button className={page === 'habits' ? 'nav-btn active' : 'nav-btn'} onClick={() => setPage('habits')}>Трекер звичок</button>
             <button className={page === 'notes' ? 'nav-btn active' : 'nav-btn'} onClick={() => setPage('notes')}>Нотатки</button>
+            <button className={page === 'finance' ? 'nav-btn active' : 'nav-btn'} onClick={() => setPage('finance')}>Фінанси</button>
           </div>
           <button className="logout-btn" onClick={handleLogout}>Вийти</button>
         </div>
@@ -634,6 +855,7 @@ function App() {
         ) : null}
         {page === 'habits' ? <HabitTracker /> : null}
         {page === 'notes' ? <NotesBoard /> : null}
+        {page === 'finance' ? <FinancePlanner /> : null}
       </div>
     </>
   );

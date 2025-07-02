@@ -896,3 +896,281 @@ body {
 .note-link-row button:hover {
   background: #90a4ae;
 }
+
+.finance-planner {
+  max-width: 900px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 6px 32px rgba(0,0,0,0.10);
+  padding: 32px 28px 28px 28px;
+}
+.finance-plan-block {
+  background: #e3eaf6;
+  border-radius: 12px;
+  padding: 18px 18px 10px 18px;
+  margin-bottom: 24px;
+}
+.finance-plan-block input[type="number"] {
+  margin: 0 8px 8px 0;
+  padding: 8px 12px;
+  border-radius: 7px;
+  border: 1.5px solid #b0bec5;
+  font-size: 1rem;
+  width: 160px;
+}
+.plan-expense-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.plan-expense-row span {
+  display: inline-block;
+  min-width: 180px;
+  max-width: 220px;
+  text-align: right;
+  font-size: 1rem;
+  color: #263238;
+  font-weight: 500;
+}
+.plan-expense-row input[type="number"] {
+  flex: 1;
+  min-width: 80px;
+  max-width: 160px;
+}
+.finance-save-btn {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 22px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.2s;
+}
+.finance-save-btn:hover {
+  background: #125ea7;
+}
+.finance-summary {
+  margin-bottom: 18px;
+  font-size: 1.08rem;
+  color: #263238;
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.finance-diff-table {
+  margin-bottom: 24px;
+}
+.finance-diff-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #f8fafc;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(44,62,80,0.04);
+}
+.finance-diff-table th, .finance-diff-table td {
+  padding: 10px 8px;
+  text-align: center;
+}
+.finance-diff-table th {
+  background: #e3eaf6;
+  color: #2d3a4a;
+  font-weight: 600;
+}
+.finance-diff-table tr {
+  border-bottom: 1px solid #e0eafc;
+  transition: background 0.15s;
+}
+.finance-diff-table tr:hover {
+  background: #e0eafc;
+}
+.finance-expenses-block {
+  margin-bottom: 24px;
+}
+.expense-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.expense-form input, .expense-form select {
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1.5px solid #b0bec5;
+  font-size: 1rem;
+}
+.expense-form button {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.expense-form button:hover {
+  background: #125ea7;
+}
+.expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #f8fafc;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(44,62,80,0.04);
+}
+.expenses-table th, .expenses-table td {
+  padding: 10px 8px;
+  text-align: center;
+}
+.expenses-table th {
+  background: #e3eaf6;
+  color: #2d3a4a;
+  font-weight: 600;
+}
+.expenses-table tr {
+  border-bottom: 1px solid #e0eafc;
+  transition: background 0.15s;
+}
+.expenses-table tr:hover {
+  background: #e0eafc;
+}
+.expense-edit-btn, .expense-del-btn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px 7px;
+  transition: background 0.15s;
+}
+.expense-edit-btn:hover {
+  background: #e3eaf6;
+}
+.expense-del-btn {
+  color: #d32f2f;
+}
+.expense-del-btn:hover {
+  background: #ffebee;
+}
+.finance-charts {
+  margin-top: 32px;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 18px 10px 18px 10px;
+  box-shadow: 0 2px 8px rgba(25,118,210,0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.plan-income-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.plan-income-row span {
+  display: inline-block;
+  min-width: 180px;
+  max-width: 220px;
+  text-align: right;
+  font-size: 1rem;
+  color: #263238;
+  font-weight: 500;
+}
+.plan-income-row input[type="number"] {
+  flex: 1;
+  min-width: 80px;
+  max-width: 160px;
+}
+
+.finance-plan-btn {
+  background: #ffd600;
+  color: #b28704;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 18px;
+  transition: background 0.2s;
+}
+.finance-plan-btn:hover {
+  background: #ffe066;
+}
+
+/* --- Finance plan modal styles --- */
+.modal.finance-plan-modal {
+  min-width: 340px;
+  max-width: 95vw;
+  background: #fffbe7;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(255, 193, 7, 0.18);
+  padding: 32px 28px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.modal.finance-plan-modal h3 {
+  margin-top: 0;
+  color: #b28704;
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+}
+.modal.finance-plan-modal .plan-income-row,
+.modal.finance-plan-modal .plan-expense-row {
+  margin-bottom: 8px;
+}
+.modal.finance-plan-modal .plan-income-row span,
+.modal.finance-plan-modal .plan-expense-row span {
+  color: #b28704;
+}
+.modal.finance-plan-modal input[type="number"] {
+  background: #fffde7;
+  border: 1.5px solid #ffd600;
+}
+.modal.finance-plan-modal .modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.modal.finance-plan-modal .finance-save-btn {
+  background: #ffd600;
+  color: #b28704;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 22px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.modal.finance-plan-modal .finance-save-btn:hover {
+  background: #ffe066;
+}
+.modal.finance-plan-modal button[type="button"] {
+  background: #b0bec5;
+  color: #263238;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.modal.finance-plan-modal button[type="button"]:hover {
+  background: #90a4ae;
+}
