@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  backend:
+    build: .
+    container_name: task-backend
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./tasks.json:/app/tasks.json
+    restart: always
+  frontend:
+    build: ./client
+    container_name: task-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always 

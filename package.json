@@ -1,0 +1,11 @@
+{
+  "description": "",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "sequelize": "^6.37.7",
+    "sqlite3": "^5.1.7",
+    "uuid": "^8.3.2"
+  }
+}
